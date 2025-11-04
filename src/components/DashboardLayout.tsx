@@ -58,16 +58,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               return (
                 <NavLink
                   key={item.name}
-                  to={item.href}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200",
-                      isActive
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    )
-                  }
-                  onClick={() => setSidebarOpen(false)}
+  to={item.href}
+  end={item.href === "/dashboard"} // 👈 only exact match for dashboard
+  className={({ isActive }) =>
+    cn(
+      "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200",
+      isActive
+        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
+        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+    )
+  }
+  onClick={() => setSidebarOpen(false)}
                 >
                   <Icon className="h-5 w-5" strokeWidth={2} />
                   <span className="font-medium">{item.name}</span>
