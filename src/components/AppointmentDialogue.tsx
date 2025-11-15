@@ -1,35 +1,34 @@
 "use client"
 
-import React, { useState } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "./ui/dialog"
+import React, { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select"
 import { Textarea } from "./ui/textarea"
+import { API_URLS, apiGet, apiPost } from "../lib/api"
 
-// ✅ Props interface
 interface AddAppointmentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onAppointmentAdded?: () => void
 }
 
-// ✅ Form data interface
+interface Patient {
+  id: number
+  // your backend may return different shape; adjust if needed
+  name: string
+}
+
+interface Doctor {
+  id: number
+  name: string
+  specialty?: string
+}
+
 interface AppointmentFormData {
-  patientName: string
-  doctorName: string
+  patient: string
+  doctor: string
   date: string
   time: string
   type: string
@@ -40,10 +39,11 @@ interface AppointmentFormData {
 export const AddAppointmentDialog: React.FC<AddAppointmentDialogProps> = ({
   open,
   onOpenChange,
+  onAppointmentAdded,
 }) => {
   const [formData, setFormData] = useState<AppointmentFormData>({
-    patientName: "",
-    doctorName: "",
+    patient: "",
+    doctor: "",
     date: "",
     time: "",
     type: "",
@@ -51,185 +51,195 @@ export const AddAppointmentDialog: React.FC<AddAppointmentDialogProps> = ({
     notes: "",
   })
 
-  // ✅ Typed event handler
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+
+  // load lists when dialog opens
+  useEffect(() => {
+    if (!open) return
+
+    const fetchLists = async () => {
+      try {
+        const p = (await apiGet(API_URLS.patients)) as unknown
+        const d = (await apiGet(API_URLS.doctors)) as unknown
+
+        // Defensive casts: try to map to expected shape
+        const patientsList: Patient[] =
+          Array.isArray(p) && (p as any[]).length
+            ? (p as any[]).map((x) =>
+                typeof x.name === "string" ? { id: x.id, name: x.name } : { id: x.id, name: `${x.first_name || ""} ${x.last_name || ""}`.trim() }
+              )
+            : []
+
+        const doctorsList: Doctor[] =
+          Array.isArray(d) && (d as any[]).length
+            ? (d as any[]).map((x) =>
+                typeof x.name === "string" ? { id: x.id, name: x.name, specialty: (x as any).specialization } : { id: x.id, name: ((x.user && `${x.user.first_name} ${x.user.last_name}`) || `Doctor ${x.id}`), specialty: (x as any).specialization }
+              )
+            : []
+
+        setPatients(patientsList)
+        setDoctors(doctorsList)
+      } catch (err) {
+        console.error("Failed to fetch patients/doctors:", err)
+      }
+    }
+
+    fetchLists()
+  }, [open])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("New appointment:", formData)
-    onOpenChange(false)
-    // Reset form
-    setFormData({
-      patientName: "",
-      doctorName: "",
-      date: "",
-      time: "",
-      type: "",
-      status: "pending",
-      notes: "",
-    })
+    setLoading(true)
+    setError("")
+
+    if (!formData.patient) {
+      setError("Please select a patient.")
+      setLoading(false)
+      return
+    }
+    if (!formData.date || !formData.time) {
+      setError("Please choose date and time.")
+      setLoading(false)
+      return
+    }
+
+    try {
+      await apiPost(API_URLS.appointments, {
+        patient: Number(formData.patient), // backend expects ID
+        doctor: formData.doctor ? Number(formData.doctor) : null,
+        scheduled_at: `${formData.date}T${formData.time}`,
+        type: formData.type,
+        status: formData.status,
+        reason: formData.notes,
+      })
+
+      onAppointmentAdded?.()
+      onOpenChange(false)
+      setFormData({ patient: "", doctor: "", date: "", time: "", type: "", status: "pending", notes: "" })
+    } catch (err) {
+      console.error("Failed to create appointment:", err)
+      setError("Failed to create appointment.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-2 border-secondary">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto z-50 p-6">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground">
-            Schedule New Appointment
-          </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
-            Fill in the details to create a new appointment.
-          </DialogDescription>
+          <DialogTitle className="text-2xl font-bold text-foreground">Schedule New Appointment</DialogTitle>
+          <DialogDescription className="text-muted-foreground">Fill in the details to create a new appointment.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Patient Name */}
-            <div className="space-y-2">
-              <Label htmlFor="patient" className="text-foreground font-medium">
-                Patient Name *
-              </Label>
-              <Input
-                id="patient"
-                value={formData.patientName}
-                onChange={(e) =>
-                  setFormData({ ...formData, patientName: e.target.value })
-                }
-                className="border-2 border-border focus:border-primary"
-                placeholder="Select or enter patient name"
-                required
-              />
-            </div>
 
-            {/* Doctor Name */}
-            <div className="space-y-2">
-              <Label htmlFor="doctor" className="text-foreground font-medium">
-                Doctor Name *
-              </Label>
-              <Input
-                id="doctor"
-                value={formData.doctorName}
-                onChange={(e) =>
-                  setFormData({ ...formData, doctorName: e.target.value })
-                }
-                className="border-2 border-border focus:border-primary"
-                placeholder="Select or enter doctor name"
-                required
-              />
-            </div>
+          {/* Patient select (native) */}
+          <div className="space-y-2">
+            <Label>Patient *</Label>
+            <select
+              value={formData.patient}
+              onChange={(e) => setFormData({ ...formData, patient: e.target.value })}
+              className="w-full border-2 border-border rounded-md px-3 py-2 focus:border-primary"
+              required
+            >
+              <option value="">-- Select patient --</option>
+              {patients.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            {/* Appointment Date */}
+          {/* Doctor select (native) */}
+          <div className="space-y-2">
+            <Label>Doctor</Label>
+            <select
+              value={formData.doctor}
+              onChange={(e) => setFormData({ ...formData, doctor: e.target.value })}
+              className="w-full border-2 border-border rounded-md px-3 py-2 focus:border-primary"
+            >
+              <option value="">-- Select doctor (optional) --</option>
+              {doctors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}{d.specialty ? ` — ${d.specialty}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Date & Time */}
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="date" className="text-foreground font-medium">
-                Appointment Date *
-              </Label>
+              <Label>Date *</Label>
               <Input
-                id="date"
                 type="date"
                 value={formData.date}
-                onChange={(e) =>
-                  setFormData({ ...formData, date: e.target.value })
-                }
-                className="border-2 border-border focus:border-primary"
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 required
               />
             </div>
 
-            {/* Appointment Time */}
             <div className="space-y-2">
-              <Label htmlFor="time" className="text-foreground font-medium">
-                Appointment Time *
-              </Label>
+              <Label>Time *</Label>
               <Input
-                id="time"
                 type="time"
                 value={formData.time}
-                onChange={(e) =>
-                  setFormData({ ...formData, time: e.target.value })
-                }
-                className="border-2 border-border focus:border-primary"
+                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                 required
               />
             </div>
+          </div>
 
-            {/* Appointment Type */}
+          {/* Type & Status */}
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="type" className="text-foreground font-medium">
-                Appointment Type *
-              </Label>
-              <Select
+              <Label>Type</Label>
+              <Input
+                placeholder="e.g., Checkup, Follow-up"
                 value={formData.type}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, type: value })
-                }
-              >
-                <SelectTrigger className="border-2 border-border focus:border-primary">
-                    <SelectValue>{formData.status || "Select status"}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Consultation">Consultation</SelectItem>
-                  <SelectItem value="Follow-up">Follow-up</SelectItem>
-                  <SelectItem value="Checkup">Checkup</SelectItem>
-                  <SelectItem value="Surgery">Surgery</SelectItem>
-                  <SelectItem value="Emergency">Emergency</SelectItem>
-                </SelectContent>
-              </Select>
+                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              />
             </div>
 
-            {/* Appointment Status */}
             <div className="space-y-2">
-              <Label htmlFor="status" className="text-foreground font-medium">
-                Status *
-              </Label>
-              <Select
+              <Label>Status *</Label>
+              <select
                 value={formData.status}
-                onValueChange={(value: AppointmentFormData["status"]) =>
-                  setFormData({ ...formData, status: value })
-                }
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as AppointmentFormData["status"] })}
+                className="w-full border-2 border-border rounded-md px-3 py-2 focus:border-primary"
+                required
               >
-                <SelectTrigger className="border-2 border-border focus:border-primary">
-                 
-                     <SelectValue>{formData.status || "Select status"}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="pending">pending</option>
+                <option value="confirmed">confirmed</option>
+                <option value="completed">completed</option>
+                <option value="cancelled">cancelled</option>
+              </select>
             </div>
           </div>
 
           {/* Notes */}
           <div className="space-y-2">
-            <Label htmlFor="notes" className="text-foreground font-medium">
-              Additional Notes
-            </Label>
+            <Label>Notes</Label>
             <Textarea
-              id="notes"
               value={formData.notes}
-              onChange={(e) =>
-                setFormData({ ...formData, notes: e.target.value })
-              }
-              className="border-2 border-border focus:border-primary min-h-[100px]"
-              placeholder="Enter any additional notes or special instructions..."
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="min-h-[100px] border-2 border-border focus:border-primary"
             />
           </div>
 
-          {/* Buttons */}
-          <div className="flex gap-3 justify-end pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="border-2"
-            >
+          {error && <p className="text-red-500">{error}</p>}
+
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="bg-primary hover:bg-secondary transition-all duration-300 shadow-md hover:shadow-lg"
-            >
-              Schedule Appointment
+            <Button type="submit" disabled={loading}>
+              {loading ? "Scheduling..." : "Schedule Appointment"}
             </Button>
           </div>
         </form>

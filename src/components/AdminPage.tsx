@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/router"
 import { DashboardLayout } from "./DashboardLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Button } from "./ui/button"
@@ -31,6 +32,7 @@ interface ActivityLog {
   details: string
 }
 
+// Mock activity data
 const mockActivities: ActivityLog[] = [
   {
     id: "1",
@@ -64,38 +66,6 @@ const mockActivities: ActivityLog[] = [
     timestamp: "2024-01-20 08:30 AM",
     details: "Appointment scheduled for Kipchoge Rotich",
   },
-  {
-    id: "5",
-    type: "inventory",
-    action: "Low Stock Alert",
-    user: "System",
-    timestamp: "2024-01-20 08:00 AM",
-    details: "Metformin stock below minimum threshold",
-  },
-  {
-    id: "6",
-    type: "staff",
-    action: "Staff Updated",
-    user: "Admin User",
-    timestamp: "2024-01-19 05:30 PM",
-    details: "Dr. Chebet Koech schedule updated",
-  },
-  {
-    id: "7",
-    type: "appointment",
-    action: "Appointment Completed",
-    user: "Dr. Mutua Musyoka",
-    timestamp: "2024-01-19 04:15 PM",
-    details: "Surgery consultation completed for Chebet Koech",
-  },
-  {
-    id: "8",
-    type: "patient",
-    action: "Patient Record Updated",
-    user: "Dr. Kimani Kariuki",
-    timestamp: "2024-01-19 03:00 PM",
-    details: "Medical history updated for Akinyi Odhiambo",
-  },
 ]
 
 const activityIcons = {
@@ -115,9 +85,21 @@ const activityColors = {
 }
 
 export default function AdminPage() {
+  const router = useRouter()
   const [staffDialogOpen, setStaffDialogOpen] = useState(false)
   const [stockDialogOpen, setStockDialogOpen] = useState(false)
   const [activities] = useState<ActivityLog[]>(mockActivities)
+
+  // Get logged-in email from localStorage (or context)
+  const userEmail = typeof window !== "undefined" ? localStorage.getItem("userEmail") : null
+  const isAdmin = userEmail === "admin@hospital.com"
+
+  // Redirect non-admins to dashboard
+  useEffect(() => {
+    if (!isAdmin) router.push("/")
+  }, [isAdmin, router])
+
+  if (!isAdmin) return null // avoid rendering page for non-admins
 
   return (
     <DashboardLayout>
@@ -198,30 +180,36 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Button
-                onClick={() => setStaffDialogOpen(true)}
-                className="h-24 flex flex-col items-center justify-center gap-2 bg-primary hover:bg-secondary transition-all"
-              >
-                <UserPlus className="h-6 w-6" />
-                <span>Add Staff</span>
-              </Button>
+              {/* Only Admin Can Add/Remove Staff or Stock */}
+              {isAdmin && (
+                <>
+                  <Button
+                    onClick={() => setStaffDialogOpen(true)}
+                    className="h-24 flex flex-col items-center justify-center gap-2 bg-primary hover:bg-secondary transition-all"
+                  >
+                    <UserPlus className="h-6 w-6" />
+                    <span>Add Staff</span>
+                  </Button>
 
-              <Button
-                variant="outline"
-                className="h-24 flex flex-col items-center justify-center gap-2 border-2 hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-all bg-transparent"
-              >
-                <UserMinus className="h-6 w-6" />
-                <span>Remove Staff</span>
-              </Button>
+                  <Button
+                    variant="outline"
+                    className="h-24 flex flex-col items-center justify-center gap-2 border-2 hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-all bg-transparent"
+                  >
+                    <UserMinus className="h-6 w-6" />
+                    <span>Remove Staff</span>
+                  </Button>
 
-              <Button
-                onClick={() => setStockDialogOpen(true)}
-                className="h-24 flex flex-col items-center justify-center gap-2 bg-secondary hover:bg-primary transition-all"
-              >
-                <Package className="h-6 w-6" />
-                <span>Add Stock</span>
-              </Button>
+                  <Button
+                    onClick={() => setStockDialogOpen(true)}
+                    className="h-24 flex flex-col items-center justify-center gap-2 bg-secondary hover:bg-primary transition-all"
+                  >
+                    <Package className="h-6 w-6" />
+                    <span>Add Stock</span>
+                  </Button>
+                </>
+              )}
 
+              {/* All users can view reports */}
               <Button
                 variant="outline"
                 className="h-24 flex flex-col items-center justify-center gap-2 border-2 hover:bg-primary/10 hover:border-primary hover:text-primary transition-all bg-transparent"
@@ -299,8 +287,9 @@ export default function AdminPage() {
         </Card>
       </div>
 
-      <ManageStaffDialog open={staffDialogOpen} onOpenChange={setStaffDialogOpen} />
-      <AddStockDialog open={stockDialogOpen} onOpenChange={setStockDialogOpen} />
+      {/* Dialogs */}
+      {isAdmin && <ManageStaffDialog open={staffDialogOpen} onOpenChange={setStaffDialogOpen} />}
+      {isAdmin && <AddStockDialog open={stockDialogOpen} onOpenChange={setStockDialogOpen} />}
     </DashboardLayout>
   )
 }

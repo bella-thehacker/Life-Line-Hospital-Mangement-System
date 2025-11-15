@@ -11,208 +11,205 @@ import {
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select"
+import { API_URLS, apiPost } from "../lib/api"
 
-// ✅ Props interface
 interface AddDoctorDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onDoctorAdded?: () => void
 }
 
-// ✅ Form data interface
 interface DoctorFormData {
+  id: string
   name: string
   specialization: string
   experience: string
   phone: string
   email: string
   availability: "available" | "busy" | "off-duty" | ""
+  patients: string
+  rating: string
 }
 
 export const AddDoctorDialog: React.FC<AddDoctorDialogProps> = ({
   open,
   onOpenChange,
+  onDoctorAdded,
 }) => {
   const [formData, setFormData] = useState<DoctorFormData>({
+    id: "",
     name: "",
     specialization: "",
     experience: "",
     phone: "",
     email: "",
     availability: "",
+    patients: "",
+    rating: "",
   })
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    console.log("New doctor:", formData)
-    onOpenChange(false)
-    // Reset form
-    setFormData({
-      name: "",
-      specialization: "",
-      experience: "",
-      phone: "",
-      email: "",
-      availability: "",
-    })
+    setLoading(true)
+    setError("")
+
+    const payload = {
+       user_name: formData.name,      // must match serializer
+  user_email: formData.email,    // must match serializer
+  specialization: formData.specialization,
+  experience: Number(formData.experience),
+  phone: formData.phone,
+  availability: formData.availability,
+  patients: Number(formData.patients),
+  rating: Number(formData.rating),
+    }
+
+    try {
+      await apiPost(API_URLS.doctors, payload)
+      onDoctorAdded?.()
+      onOpenChange(false)
+    } catch (err) {
+      console.error(err)
+      setError("Failed to add doctor.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-2 border-secondary">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground">
-            Add New Doctor
-          </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
-            Enter the doctor's information to add them to the system.
-          </DialogDescription>
+          <DialogTitle className="text-2xl font-bold">Add New Doctor</DialogTitle>
+          <DialogDescription>Enter the doctor information.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-4">
           <div className="grid gap-6 md:grid-cols-2">
-            {/* Full Name */}
-            <div className="space-y-2">
-              <Label htmlFor="doctor-name" className="text-foreground font-medium">
-                Full Name *
-              </Label>
+
+            <div>
+              <Label>ID *</Label>
               <Input
-                id="doctor-name"
+                value={formData.id}
+                onChange={(e) => setFormData({ ...formData, id: e.target.value })}
+                placeholder="D001"
+                required
+              />
+            </div>
+
+            <div>
+              <Label>Full Name *</Label>
+              <Input
                 value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                className="border-2 border-border focus:border-primary"
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Dr. John Smith"
                 required
               />
             </div>
 
-            {/* Specialization */}
-            <div className="space-y-2">
-              <Label htmlFor="specialization" className="text-foreground font-medium">
-                Specialization *
-              </Label>
-              <Select
+            <div>
+              <Label>Specialization *</Label>
+              <Input
                 value={formData.specialization}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, specialization: value })
+                onChange={(e) =>
+                  setFormData({ ...formData, specialization: e.target.value })
                 }
-              >
-                <SelectTrigger className="border-2 border-border focus:border-primary">
-                  <SelectValue>{formData.availability || "Select status"}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Cardiology">Cardiology</SelectItem>
-                  <SelectItem value="Pediatrics">Pediatrics</SelectItem>
-                  <SelectItem value="Orthopedics">Orthopedics</SelectItem>
-                  <SelectItem value="Neurology">Neurology</SelectItem>
-                  <SelectItem value="General Surgery">General Surgery</SelectItem>
-                  <SelectItem value="Dermatology">Dermatology</SelectItem>
-                  <SelectItem value="Psychiatry">Psychiatry</SelectItem>
-                  <SelectItem value="Radiology">Radiology</SelectItem>
-                </SelectContent>
-              </Select>
+                placeholder="Cardiology"
+                required
+              />
             </div>
 
-            {/* Experience */}
-            <div className="space-y-2">
-              <Label htmlFor="experience" className="text-foreground font-medium">
-                Years of Experience *
-              </Label>
+            <div>
+              <Label>Experience *</Label>
               <Input
-                id="experience"
                 type="number"
                 value={formData.experience}
                 onChange={(e) =>
                   setFormData({ ...formData, experience: e.target.value })
                 }
-                className="border-2 border-border focus:border-primary"
-                min="0"
+                placeholder="15"
                 required
               />
             </div>
 
-            {/* Availability */}
-            <div className="space-y-2">
-              <Label htmlFor="availability" className="text-foreground font-medium">
-                Availability Status *
-              </Label>
-              <Select
-                value={formData.availability}
-                onValueChange={(value: DoctorFormData["availability"]) =>
-                  setFormData({ ...formData, availability: value })
-                }
-              >
-                <SelectTrigger className="border-2 border-border focus:border-primary">
-             <SelectValue>{formData.availability || "Select status"}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="busy">Busy</SelectItem>
-                  <SelectItem value="off-duty">Off Duty</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Phone */}
-            <div className="space-y-2">
-              <Label htmlFor="doctor-phone" className="text-foreground font-medium">
-                Phone Number *
-              </Label>
+            <div>
+              <Label>Phone *</Label>
               <Input
-                id="doctor-phone"
-                type="tel"
                 value={formData.phone}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
-                }
-                className="border-2 border-border focus:border-primary"
-                placeholder="+1 (555) 123-4567"
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="+254 711 222 333"
                 required
               />
             </div>
 
-            {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="doctor-email" className="text-foreground font-medium">
-                Email Address *
-              </Label>
+            <div>
+              <Label>Email *</Label>
               <Input
-                id="doctor-email"
                 type="email"
                 value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
-                className="border-2 border-border focus:border-primary"
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="doctor@lifeline.com"
+                required
+              />
+            </div>
+
+            <div>
+              <Label>Availability *</Label>
+              <select
+                value={formData.availability}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    availability: e.target.value as any,
+                  })
+                }
+                className="w-full border px-3 py-2 rounded"
+                required
+              >
+                <option value="">Select status</option>
+                <option value="available">Available</option>
+                <option value="busy">Busy</option>
+                <option value="off-duty">Off Duty</option>
+              </select>
+            </div>
+
+            <div>
+              <Label>Patients *</Label>
+              <Input
+                type="number"
+                value={formData.patients}
+                onChange={(e) =>
+                  setFormData({ ...formData, patients: e.target.value })
+                }
+                placeholder="142"
+                required
+              />
+            </div>
+
+            <div>
+              <Label>Rating *</Label>
+              <Input
+                type="number"
+                step="0.1"
+                value={formData.rating}
+                onChange={(e) => setFormData({ ...formData, rating: e.target.value })}
+                placeholder="4.9"
                 required
               />
             </div>
           </div>
 
-          {/* Footer Buttons */}
-          <div className="flex gap-3 justify-end pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="border-2"
-            >
+          {error && <p className="text-red-500">{error}</p>}
+
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="bg-primary hover:bg-secondary transition-all duration-300 shadow-md hover:shadow-lg"
-            >
-              Add Doctor
+            <Button type="submit" disabled={loading}>
+              {loading ? "Adding..." : "Add Doctor"}
             </Button>
           </div>
         </form>

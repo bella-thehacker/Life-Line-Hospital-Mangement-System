@@ -33,12 +33,41 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
     expiryDate: "",
   })
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    console.log("Adding medication:", formData)
-    onOpenChange(false)
+ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault()
 
-    // Reset form after submission
+  // Construct payload with backend field names
+  const payload = {
+    sku: `M${Date.now()}`, // simple unique SKU
+    name: formData.name,
+    category: formData.category,
+    uses: formData.uses,
+    stock: Number(formData.stock),
+    min_stock: Number(formData.minStock),
+    unit: formData.unit,
+    expiry_date: formData.expiryDate,
+  }
+
+  try {
+    const response = await fetch("http://localhost:8000/api/inventory/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (!response.ok) {
+      throw new Error("Failed to add medication")
+    }
+
+    const newMedication = await response.json()
+    console.log("Medication added successfully:", newMedication)
+
+    // Optionally: call a prop function to refresh the list in Medication.tsx
+
+    // Close dialog and reset form
+    onOpenChange(false)
     setFormData({
       name: "",
       category: "",
@@ -48,7 +77,12 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
       unit: "",
       expiryDate: "",
     })
+  } catch (error) {
+    console.error("Error adding medication:", error)
+    alert("Failed to add medication. Check console for details.")
   }
+}
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -58,126 +92,87 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-4">
+          {/* Name & Category */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-foreground">
-                Medication Name *
-              </Label>
+              <Label htmlFor="name">Medication Name *</Label>
               <Input
                 id="name"
                 value={formData.name}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                className="border-2 border-secondary focus:border-primary"
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
               />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="category" className="text-foreground">
-                Category *
-              </Label>
+              <Label htmlFor="category">Category *</Label>
               <Input
                 id="category"
                 value={formData.category}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setFormData({ ...formData, category: e.target.value })
-                }
-                className="border-2 border-secondary focus:border-primary"
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 required
               />
             </div>
           </div>
 
+          {/* Uses */}
           <div className="space-y-2">
-            <Label htmlFor="uses" className="text-foreground">
-              Uses / Description *
-            </Label>
+            <Label htmlFor="uses">Uses / Description *</Label>
             <Textarea
               id="uses"
               value={formData.uses}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                setFormData({ ...formData, uses: e.target.value })
-              }
-              className="border-2 border-secondary focus:border-primary min-h-[80px]"
+              onChange={(e) => setFormData({ ...formData, uses: e.target.value })}
               required
             />
           </div>
 
+          {/* Stock info */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="stock" className="text-foreground">
-                Current Stock *
-              </Label>
+              <Label htmlFor="stock">Current Stock *</Label>
               <Input
                 id="stock"
                 type="number"
                 value={formData.stock}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setFormData({ ...formData, stock: e.target.value })
-                }
-                className="border-2 border-secondary focus:border-primary"
+                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                 required
               />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="minStock" className="text-foreground">
-                Minimum Stock *
-              </Label>
+              <Label htmlFor="minStock">Minimum Stock *</Label>
               <Input
                 id="minStock"
                 type="number"
                 value={formData.minStock}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setFormData({ ...formData, minStock: e.target.value })
-                }
-                className="border-2 border-secondary focus:border-primary"
+                onChange={(e) => setFormData({ ...formData, minStock: e.target.value })}
                 required
               />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="unit" className="text-foreground">
-                Unit *
-              </Label>
+              <Label htmlFor="unit">Unit *</Label>
               <Input
                 id="unit"
-                placeholder="e.g., tablets, ml"
                 value={formData.unit}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setFormData({ ...formData, unit: e.target.value })
-                }
-                className="border-2 border-secondary focus:border-primary"
+                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                placeholder="e.g., tablets, ml"
                 required
               />
             </div>
           </div>
 
+          {/* Expiry */}
           <div className="space-y-2">
-            <Label htmlFor="expiryDate" className="text-foreground">
-              Expiry Date *
-            </Label>
+            <Label htmlFor="expiryDate">Expiry Date *</Label>
             <Input
               id="expiryDate"
               type="date"
               value={formData.expiryDate}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setFormData({ ...formData, expiryDate: e.target.value })
-              }
-              className="border-2 border-secondary focus:border-primary"
+              onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
               required
             />
           </div>
 
           <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="flex-1 border-2"
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
               Cancel
             </Button>
             <Button type="submit" className="flex-1 bg-primary hover:bg-secondary">

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, ChangeEvent } from "react"
+import React, { useState, useEffect, ChangeEvent } from "react"
 import { DashboardLayout } from "./DashboardLayout"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
@@ -11,113 +11,44 @@ import { AddMedicationDialog } from "./MedicationDialogue"
 
 // Define the Medication type
 export interface Medication {
-  id: string
+  id: number          // backend primary key
+  sku: string
   name: string
   category: string
   uses: string
   stock: number
-  minStock: number
+  min_stock: number
   unit: string
-  expiryDate: string
+  expiry_date: string
 }
 
-// Mock data
-const mockMedications: Medication[] = [
-  {
-    id: "M001",
-    name: "Paracetamol",
-    category: "Analgesic",
-    uses: "Pain relief and fever reduction",
-    stock: 450,
-    minStock: 200,
-    unit: "tablets",
-    expiryDate: "2025-06-15",
-  },
-  {
-    id: "M002",
-    name: "Amoxicillin",
-    category: "Antibiotic",
-    uses: "Bacterial infections treatment",
-    stock: 180,
-    minStock: 150,
-    unit: "capsules",
-    expiryDate: "2024-12-20",
-  },
-  {
-    id: "M003",
-    name: "Ibuprofen",
-    category: "Anti-inflammatory",
-    uses: "Pain, inflammation, and fever reduction",
-    stock: 320,
-    minStock: 200,
-    unit: "tablets",
-    expiryDate: "2025-03-10",
-  },
-  {
-    id: "M004",
-    name: "Metformin",
-    category: "Antidiabetic",
-    uses: "Type 2 diabetes management",
-    stock: 95,
-    minStock: 100,
-    unit: "tablets",
-    expiryDate: "2025-08-22",
-  },
-  {
-    id: "M005",
-    name: "Omeprazole",
-    category: "Proton Pump Inhibitor",
-    uses: "Acid reflux and ulcer treatment",
-    stock: 210,
-    minStock: 150,
-    unit: "capsules",
-    expiryDate: "2025-01-30",
-  },
-  {
-    id: "M006",
-    name: "Ciprofloxacin",
-    category: "Antibiotic",
-    uses: "Bacterial infections, UTI treatment",
-    stock: 75,
-    minStock: 100,
-    unit: "tablets",
-    expiryDate: "2024-11-15",
-  },
-  {
-    id: "M007",
-    name: "Artemether-Lumefantrine",
-    category: "Antimalarial",
-    uses: "Malaria treatment",
-    stock: 280,
-    minStock: 200,
-    unit: "tablets",
-    expiryDate: "2025-09-05",
-  },
-  {
-    id: "M008",
-    name: "Salbutamol Inhaler",
-    category: "Bronchodilator",
-    uses: "Asthma and breathing difficulties",
-    stock: 45,
-    minStock: 50,
-    unit: "inhalers",
-    expiryDate: "2025-04-18",
-  },
-]
 
-// Props expected by AddMedicationDialog
 interface AddMedicationDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-// Extend imported AddMedicationDialog with prop typing (if not already typed)
 const TypedAddMedicationDialog = AddMedicationDialog as React.FC<AddMedicationDialogProps>
 
 const Medication: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [dialogOpen, setDialogOpen] = useState<boolean>(false)
-  const [medications] = useState<Medication[]>(mockMedications)
+  const [medications, setMedications] = useState<Medication[]>([])
+
+  // Fetch medications from API
+  const fetchMedications = async () => {
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/inventory/") // Adjust URL if needed
+      const data = await res.json()
+      setMedications(data)
+    } catch (err) {
+      console.error("Error fetching medications:", err)
+    }
+  }
+
+  useEffect(() => {
+    fetchMedications()
+  }, [])
 
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>): void => {
     setSearchQuery(e.target.value)
@@ -130,7 +61,8 @@ const Medication: React.FC = () => {
       med.uses.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
-  const lowStockCount = medications.filter((med) => med.stock < med.minStock).length
+  const lowStockCount = medications.filter((med) => med.stock < med.min_stock).length
+  const totalStock = medications.reduce((sum, med) => sum + med.stock, 0)
 
   return (
     <DashboardLayout>
@@ -154,9 +86,7 @@ const Medication: React.FC = () => {
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="border-2 border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Medications
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Medications</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">{medications.length}</div>
@@ -166,14 +96,10 @@ const Medication: React.FC = () => {
 
           <Card className="border-2 border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Stock
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Stock</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">
-                {medications.reduce((sum, med) => sum + med.stock, 0)}
-              </div>
+              <div className="text-3xl font-bold text-foreground">{totalStock}</div>
               <p className="text-xs text-muted-foreground mt-1">Units available</p>
             </CardContent>
           </Card>
@@ -206,8 +132,8 @@ const Medication: React.FC = () => {
         {/* Medications Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredMedications.map((medication) => {
-            const isLowStock = medication.stock < medication.minStock
-            const stockPercentage = (medication.stock / medication.minStock) * 100
+            const isLowStock = medication.stock < medication.min_stock
+            const stockPercentage = (medication.stock / medication.min_stock) * 100
 
             return (
               <Card
@@ -223,12 +149,8 @@ const Medication: React.FC = () => {
                         <Package className="h-5 w-5 text-primary" />
                       </div>
                       <div>
-                        <CardTitle className="text-lg font-bold text-foreground mb-1">
-                          {medication.name}
-                        </CardTitle>
-                        <Badge variant="secondary" className="text-xs">
-                          {medication.category}
-                        </Badge>
+                        <CardTitle className="text-lg font-bold text-foreground mb-1">{medication.name}</CardTitle>
+                        <Badge variant="secondary" className="text-xs">{medication.category}</Badge>
                       </div>
                     </div>
                     {isLowStock && <AlertTriangle className="h-5 w-5 text-destructive" />}
@@ -243,31 +165,25 @@ const Medication: React.FC = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Stock Level</span>
-                      <span
-                        className={`font-bold ${
-                          isLowStock ? "text-destructive" : "text-primary"
-                        }`}
-                      >
+                      <span className={`font-bold ${isLowStock ? "text-destructive" : "text-primary"}`}>
                         {medication.stock} {medication.unit}
                       </span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full transition-all ${
-                          isLowStock ? "bg-destructive" : "bg-primary"
-                        }`}
+                        className={`h-2 rounded-full transition-all ${isLowStock ? "bg-destructive" : "bg-primary"}`}
                         style={{ width: `${Math.min(stockPercentage, 100)}%` }}
                       />
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Minimum required: {medication.minStock} {medication.unit}
+                      Minimum required: {medication.min_stock} {medication.unit}
                     </p>
                   </div>
 
                   <div className="pt-3 border-t border-border">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Expiry Date</span>
-                      <span className="font-medium text-foreground">{medication.expiryDate}</span>
+                      <span className="font-medium text-foreground">{medication.expiry_date}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm mt-2">
                       <span className="text-muted-foreground">ID</span>
@@ -287,7 +203,13 @@ const Medication: React.FC = () => {
         )}
       </div>
 
-      <TypedAddMedicationDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <TypedAddMedicationDialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open)
+          if (!open) fetchMedications() // Refresh list after dialog closes
+        }}
+      />
     </DashboardLayout>
   )
 }
